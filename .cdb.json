@@ -1,0 +1,11 @@
+{
+   "author" : "bas080",
+   "dev_state" : "ACTIVELY_DEVELOPED",
+   "license" : "LGPL-2.1-only",
+   "media_license" : "CC0-1.0",
+   "name" : "massive_tree",
+   "short_description" : "Massive tree with rotten branches and optional fireflies",
+   "title" : "Massive Tree",
+   "type" : "MOD",
+   "$version" : "0.0.0"
+}
