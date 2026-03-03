@@ -201,33 +201,6 @@ if true then
         end,
     })
 
-    core.register_lbm({
-        name = MOD_NAME..":make_rotten_tree",
-        nodenames = {MOD_TREE},
-        run_at_every_load = true,
-        action = function(pos)
-            local seed = minetest.hash_node_position(pos)
-            local rng = PcgRandom(seed)
-
-            -- 20% chance for this node to become rotten
-            if rng:next(1, 100) <= 20 then
-                local radius = 5
-
-                -- check nearby leaves (within 1 node)
-                local nearby_leaves = minetest.find_nodes_in_area(
-                    vector.add(pos, radius),
-                    vector.subtract(pos, radius),
-                    {DEFAULT_LEAVES}
-                )
-
-                if #nearby_leaves == 0 then
-                    minetest.set_node(pos, {name = MOD_ROTTEN_TREE})
-                end
-            end
-        end,
-    })
-
-    -- register the new node
     minetest.register_node(MOD_ROTTEN_TREE, rotten_tree_def)
 
     minetest.register_globalstep(function(dtime)
@@ -254,6 +227,27 @@ if core.registered_nodes["fireflies:firefly"] then
         name = MOD_NAME..":fireflies",
         nodenames = {MOD_TREE},
         run_at_every_load = true,
+        on_construct = function(pos)
+            local seed = minetest.hash_node_position(pos)
+            local rng = PcgRandom(seed)
+
+            -- 20% chance for this node to become rotten
+            if rng:next(1, 100) <= 20 then
+                local radius = 5
+
+                -- check nearby leaves (within 1 node)
+                local nearby_leaves = minetest.find_nodes_in_area(
+                    vector.add(pos, radius),
+                    vector.subtract(pos, radius),
+                    {DEFAULT_LEAVES}
+                )
+
+                if #nearby_leaves == 0 then
+                    minetest.set_node(pos, {name = MOD_ROTTEN_TREE})
+                end
+            end
+        end,
+
         action = function(pos)
             local seed = minetest.hash_node_position(pos)
             -- Using PcgRandom to prevent a tree spawning way to many fireflies.
