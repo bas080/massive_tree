@@ -1,7 +1,5 @@
 # Massive Tree
 
-> In Development (use creative to test)
-
 The core idea of the mod is not just aesthetics but an attempt at creating simple rules that
 result in a pleasant looking tree of massive size.
 
