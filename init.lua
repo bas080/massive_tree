@@ -119,6 +119,8 @@ core.register_node(MOD_TREE, my_tree_def)
 core.register_node(MOD_LEAVES, my_leaves_def)
 
 local MOD_ROTTEN_TREE = MOD_NAME..":rotten_tree"
+local MOD_ROTTEN_TREE_SAG = MOD_NAME..":rotten_tree_sag"
+local SAG_DELAY = 0.4
 
 if true then
 
@@ -149,22 +151,55 @@ if true then
         if def and (def.walkable == false or def.buildable_to) then
             local timer = minetest.get_node_timer(pos)
             if not timer:is_started() then
-                timer:start(2)
+                local node = minetest.get_node(pos)
+
+                minetest.swap_node(pos, {
+                    name = MOD_ROTTEN_TREE_SAG,
+                })
+
+                minetest.sound_play("default_tool_breaks", {
+                    pos = pos,
+                    gain = 1.0,
+                    max_hear_distance = 16,
+                })
+
+                minetest.get_node_timer(pos):start(SAG_DELAY)
             end
         end
     end
 
-    -- override the on_timer for falling behavior
-    rotten_tree_def.on_timer = function(pos)
-        minetest.sound_play("default_wood_footstep", {
-            pos = pos,
-            gain = 1.0,
-            max_hear_distance = 16,
-        })
-        minetest.spawn_falling_node(pos, MOD_ROTTEN_TREE)
-    end
+    minetest.register_node(MOD_ROTTEN_TREE_SAG, {
+        description = "Rotten Tree (Sagging)",
+        tiles = rotten_tree_def.tiles,
+        drawtype = "nodebox",
+        paramtype = "light",
+        paramtype2 = rotten_tree_def.paramtype2 or "facedir",
 
+        node_box = {
+            type = "fixed",
+            fixed = {-0.5, -0.625, -0.5, 0.5, 0.375, 0.5}
+        },
 
+        groups = table.copy(rotten_tree_def.groups),
+        drop = MOD_ROTTEN_TREE,
+
+        on_timer = function(pos)
+            local node = minetest.get_node(pos)
+
+            minetest.swap_node(pos, {
+                name = MOD_ROTTEN_TREE,
+                param2 = node.param2
+            })
+
+            minetest.sound_play("default_tool_breaks", {
+                pos = pos,
+                gain = 1.0,
+                max_hear_distance = 16,
+            })
+
+            minetest.check_for_falling(pos)
+        end,
+    })
 
     core.register_lbm({
         name = MOD_NAME..":make_rotten_tree",
