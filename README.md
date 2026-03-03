@@ -29,3 +29,9 @@ This mod delivers massive trees and ways to influence the growth of these tree a
 - The tree uses timers and grows real-time and not during map gen.
 - Light is central to the decision making of these nodes. That is also the case for IRL trees.
 - Once the tree is done growing the nodes are replaced with `default:leaves` nodes. You could remove the mod after the tree is generated.
+
+## Ideas
+
+See the [ideas page][ideas].
+
+[ideas]:https://github.com/bas080/massive_tree/wiki/Ideas
