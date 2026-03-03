@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.1
+
+* Rotten branches drop before falling which allows you to jump to safety or not.
+* Added leaf_particles as an optional dependency.
+* Performance improvement by turning tree to rotten on construct instead of LBM. 
 
 ## 0.0.0
 
