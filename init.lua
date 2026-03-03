@@ -19,7 +19,9 @@ local default_tree_def = minetest.registered_nodes[DEFAULT_TREE]
 local my_leaves_def = table.copy(default_leaves_def)
 local my_tree_def = table.copy(default_tree_def)
 
-my_leaves_def.description = "Massive Tree Leaves"
+local S = core.get_translator and core.get_translator("mtpaint") or function(s) return s end
+
+my_leaves_def.description = S("Massive Tree Leaves")
 
 local function force_get_node(pos, cb)
     local existing = minetest.get_node_or_nil(pos)
@@ -128,7 +130,7 @@ if true then
     local rotten_tree_def = table.copy(default_tree_def)
 
     -- modify properties for rotten behavior
-    rotten_tree_def.description = "Rotten Tree"
+    rotten_tree_def.description = S("Rotten Tree")
 
 
     -- make a copy of the tiles table
@@ -151,8 +153,6 @@ if true then
         if def and (def.walkable == false or def.buildable_to) then
             local timer = minetest.get_node_timer(pos)
             if not timer:is_started() then
-                local node = minetest.get_node(pos)
-
                 minetest.swap_node(pos, {
                     name = MOD_ROTTEN_TREE_SAG,
                 })
@@ -169,11 +169,12 @@ if true then
     end
 
     minetest.register_node(MOD_ROTTEN_TREE_SAG, {
-        description = "Rotten Tree (Sagging)",
+        description = S("Rotten Tree (Sagging)"),
         tiles = rotten_tree_def.tiles,
         drawtype = "nodebox",
         paramtype = "light",
         paramtype2 = rotten_tree_def.paramtype2 or "facedir",
+        is_ground_content = false,
 
         node_box = {
             type = "fixed",
@@ -278,7 +279,7 @@ end
 local MOD_SEED = MOD_NAME..":seed"
 
 core.register_node(MOD_SEED, {
-    description = "Massive Tree Seed",
+    description = S("Massive Tree Seed"),
     tiles = {"massive_tree_seed.png"},  -- replace with your seed texture
     inventory_image = "massive_tree_seed.png",
     wield_image = "massive_tree_seed.png",
