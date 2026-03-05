@@ -11,33 +11,57 @@ local NEIGHBOR_OFFSETS = {
     {x=0,y=0,z=1},{x=0,y=0,z=-1}
 }
 
+local MOD_ROTTEN_TREE = MOD_NAME..":rotten_tree"
+local MOD_ROTTEN_TREE_SAG = MOD_NAME..":rotten_tree_sag"
 local MOD_LEAVES = MOD_NAME..":leaves"
 local MOD_TREE = MOD_NAME..":tree"
 local DEFAULT_LEAVES = "default:leaves"
 local DEFAULT_TREE = "default:tree"
+local SAG_DELAY = 0.4
+
 local default_leaves_def = minetest.registered_nodes[DEFAULT_LEAVES]
 local default_tree_def = minetest.registered_nodes[DEFAULT_TREE]
 
 local my_leaves_def = table.copy(default_leaves_def)
 local my_tree_def = table.copy(default_tree_def)
 
-local S = core.get_translator and core.get_translator("mtpaint") or function(s) return s end
 
-my_leaves_def.description = S("Massive Tree Leaves")
-
-local function force_get_node(pos, cb)
+local function emerge_node (pos, cb)
     local existing = minetest.get_node_or_nil(pos)
 
     if not existing then
         core.emerge_area(pos, pos, function(blockpos, action, calls_remaining, param)
             if calls_remaining == 0 then
-                force_get_node(pos, cb)
+                cb(minetest.get_node(pos), pos)
             end
         end)
         return
     end
     cb(existing, pos)
 end
+
+my_tree_def.on_construct = function(pos)
+    local seed = minetest.hash_node_position(pos)
+    local rng = PcgRandom(seed)
+
+    -- 20% chance for this node to become rotten
+    if rng:next(1, 100) <= 20 then
+        local radius = 5
+
+        local nearby_leaves = minetest.find_nodes_in_area(
+            vector.add(pos, radius),
+            vector.subtract(pos, radius),
+            {MOD_LEAVES, DEFAULT_LEAVES}
+        )
+
+        if #nearby_leaves == 0 then
+            core.set_node(pos, {name= MOD_ROTTEN_TREE})
+        end
+    end
+end
+
+
+my_leaves_def.description = S("Massive Tree Leaves")
 
 local function generate_tree_id(pos)
     return minetest.get_us_time() .. ":" .. minetest.pos_to_string(pos)
@@ -47,7 +71,7 @@ local function spawn_leaves(pos, parent_generation, tree_id)
     for _, offset in ipairs(NEIGHBOR_OFFSETS) do
         local neighbor_pos = vector.add(pos, offset)
 
-        force_get_node(neighbor_pos, function(node, p)
+        emerge_node(neighbor_pos, function(node, p)
             if node.name ~= "air" then return end
 
             core.set_node(p, {name = MOD_LEAVES})
@@ -61,7 +85,7 @@ local function spawn_leaves(pos, parent_generation, tree_id)
 end
 
 my_leaves_def.on_construct = function(pos)
-    core.get_node_timer(pos):start(GROWTH_INTERVAL + math.random(GROWTH_INTERVAL))
+    core.get_node_timer(pos):start(GROWTH_INTERVAL + math.random() * GROWTH_INTERVAL)
 end
 
 my_leaves_def.after_place_node = function(pos)
@@ -72,6 +96,8 @@ my_leaves_def.after_place_node = function(pos)
 end
 
 my_leaves_def.on_timer = function(pos)
+    -- if when_idle.is_busy then return true end
+
     local meta = core.get_meta(pos)
     local tree_id = meta:get_string("tree_id")
 
@@ -89,15 +115,16 @@ my_leaves_def.on_timer = function(pos)
 
     local light_level = core.get_node_light(pos, 0.5) or 0
 
-
     local min_pos = vector.subtract(pos, LEAF_SPAWN_RADIUS)
     local max_pos = vector.add(pos, LEAF_SPAWN_RADIUS)
-    local nearby_trees = core.find_nodes_in_area(min_pos, max_pos, {MOD_TREE})
 
     -- Make plant growth more likely in hotter spots.
     if math.random(math.abs(math.pow(core.get_humidity(pos), 2))) == 1 then
         return true
     end
+
+
+    local nearby_trees = core.find_nodes_in_area(min_pos, max_pos, {MOD_TREE})
 
     if light_level <= 10 and #nearby_trees > 0 and math.random(#nearby_trees) then
         core.set_node(pos, { name = MOD_TREE })
@@ -108,8 +135,18 @@ my_leaves_def.on_timer = function(pos)
                 -- WORTH TRYING! Another idea is to favor upward growth when many trees and downward when less tree.
                 -- The idea is that branches will grow down and the trunk up.
         if light_level >= 14 then
+            if meta:get_int("spawned") == 1 then
+                return true
+            end    
+
+            meta:set_int("spawned", 1)
             spawn_leaves(pos, generation, tree_id)
         elseif light_level >= 13 then
+            if meta:get_int("spawned") == 1 then
+                return true
+            end    
+
+            meta:set_int("spawned", 1)
             spawn_leaves(vector.add(pos, {x=0,y=-1,z=0}), generation, tree_id)
         end
 
@@ -121,10 +158,6 @@ end
 
 core.register_node(MOD_TREE, my_tree_def)
 core.register_node(MOD_LEAVES, my_leaves_def)
-
-local MOD_ROTTEN_TREE = MOD_NAME..":rotten_tree"
-local MOD_ROTTEN_TREE_SAG = MOD_NAME..":rotten_tree_sag"
-local SAG_DELAY = 0.4
 
 if true then
 
@@ -230,28 +263,39 @@ if core.registered_nodes["fireflies:firefly"] then
         name = MOD_NAME..":fireflies",
         nodenames = {MOD_TREE},
         run_at_every_load = true,
-        on_construct = function(pos)
-            local seed = minetest.hash_node_position(pos)
-            local rng = PcgRandom(seed)
 
-            -- 20% chance for this node to become rotten
-            if rng:next(1, 100) <= 20 then
-                local radius = 5
+        -- bulk_action = function(positions)
+        --     when_idle.run(function()
+        --         for i = 1, #positions do
+        --             local pos = positions[i]
 
-                -- check nearby leaves (within 1 node)
-                local nearby_leaves = minetest.find_nodes_in_area(
-                    vector.add(pos, radius),
-                    vector.subtract(pos, radius),
-                    {DEFAULT_LEAVES}
-                )
+        --             local seed = minetest.hash_node_position(pos)
+        --             -- Using PcgRandom to prevent a tree spawning way too many fireflies.
+        --             local rng = PcgRandom(seed)
 
-                if #nearby_leaves == 0 then
-                    minetest.set_node(pos, {name = MOD_ROTTEN_TREE})
-                end
-            end
-        end,
+        --             if rng:next(1, 75) == 1 then
+        --                 local radius = 10
+
+        --                 local np = {
+        --                     x = pos.x + rng:next(-radius, radius),
+        --                     y = pos.y + rng:next(-radius, radius),
+        --                     z = pos.z + rng:next(-radius, radius)
+        --                 }
+
+        --                 if core.get_node(np).name ~= "air" then
+        --                     goto continue
+        --                 end
+
+        --                 core.set_node(np, {name = "fireflies:hidden_firefly"})
+
+        --                 ::continue::
+        --             end
+        --         end
+        --     end)
+        -- end        
 
         action = function(pos)
+            -- when_idle.run(function() -- I would like to use this function
             local seed = minetest.hash_node_position(pos)
             -- Using PcgRandom to prevent a tree spawning way to many fireflies.
             local rng = PcgRandom(seed)
@@ -265,12 +309,16 @@ if core.registered_nodes["fireflies:firefly"] then
                     z = pos.z + rng:next(-radius, radius)
                 }
 
-                if core.get_node(np).name ~= "air" then
-                    return
-                end
+                emerge_node(np, function(node)
+                    if node.name ~= "air" then
+                        return
+                    end
 
-                core.set_node(np, {name = "fireflies:hidden_firefly"})
+                    core.set_node(np, {name = "fireflies:hidden_firefly"})
+                end)
+
             end
+            -- end)
         end
     })
 end
