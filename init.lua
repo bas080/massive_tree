@@ -1,3 +1,5 @@
+local S = core.get_translator('massive_tree')
+
 local MAX_GENERATION = 128
 local GROWTH_INTERVAL = 1
 local MOD_NAME = core.get_current_modname()
