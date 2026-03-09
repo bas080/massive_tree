@@ -1,0 +1,20 @@
+# Translation file for massive_tree
+# Copyright (C) 2023 bas080
+# This file is distributed under the same license as the massive_tree package.
+#
+msgid ""
+msgstr ""
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Massive Tree Leaves"
+msgstr "Feuilles d'arbre massif"
+
+msgid "Rotten Tree"
+msgstr "Arbre pourri"
+
+msgid "Rotten Tree (Sagging)"
+msgstr "Arbre pourri (affaissé)"
+
+msgid "Massive Tree Seed"
+msgstr "Graine d'arbre massif"
