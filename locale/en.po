@@ -1,0 +1,20 @@
+# Translation file for massive_tree
+# Copyright (C) 2023 bas080
+# This file is distributed under the same license as the massive_tree package.
+#
+msgid ""
+msgstr ""
+"Language: en\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Massive Tree Leaves"
+msgstr "Massive Tree Leaves"
+
+msgid "Rotten Tree"
+msgstr "Rotten Tree"
+
+msgid "Rotten Tree (Sagging)"
+msgstr "Rotten Tree (Sagging)"
+
+msgid "Massive Tree Seed"
+msgstr "Massive Tree Seed"
