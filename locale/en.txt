@@ -1,0 +1,5 @@
+# textdomain: massive_tree
+Massive Tree Leaves=Massive Tree Leaves
+Rotten Tree=Rotten Tree
+Rotten Tree (Sagging)=Rotten Tree (Sagging)
+Massive Tree Seed=Massive Tree Seed
