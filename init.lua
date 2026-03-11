@@ -1,7 +1,9 @@
+luanti_utils.dofile('node_on_player_walk.lua')
+
 local S = core.get_translator('massive_tree')
 
 local MAX_GENERATION = 128
-local GROWTH_INTERVAL = 1
+local GROWTH_INTERVAL = 60
 local MOD_NAME = core.get_current_modname()
 local finished_trees = {}
 local LEAF_SPAWN_RADIUS = 4
@@ -179,8 +181,7 @@ if true then
     rotten_tree_def.groups.falling_node = 1  -- allow it to fall
 
 
-    -- on_player_walk triggers only if the node can fall
-    rotten_tree_def.on_player_walk = function(pos, player)
+    rotten_tree_def.on_walk_enter = function(pos, player)
         local below = {x = pos.x, y = pos.y - 1, z = pos.z}
         local node_below = minetest.get_node(below)
         local def = minetest.registered_nodes[node_below.name]
@@ -238,23 +239,6 @@ if true then
     })
 
     minetest.register_node(MOD_ROTTEN_TREE, rotten_tree_def)
-
-    minetest.register_globalstep(function(dtime)
-        for _, player in ipairs(minetest.get_connected_players()) do
-            local pos = player:get_pos()
-            local under = {
-                x = math.floor(pos.x),
-                y = math.floor(pos.y - 0.1),
-                z = math.floor(pos.z),
-            }
-
-            local node_name = minetest.get_node(under).name
-            local node_def = minetest.registered_nodes[node_name]
-            if node_def and node_def.on_player_walk then
-                node_def.on_player_walk(under, player)
-            end
-        end
-    end)
 end
 
 if core.registered_nodes["fireflies:firefly"] then
