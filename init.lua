@@ -1,9 +1,17 @@
 luanti_utils.dofile('node_on_player_walk.lua')
 
+-- TODO: Make cracking sound when a fall starts. See if that is possible.
+
+local emerge_node = luanti_utils.dofile('emerge_node.lua')
+local register_node_copy = luanti_utils.dofile('register_node_copy.lua')
+local table_merge = luanti_utils.dofile('table_merge.lua')
+local modify_texture = luanti_utils.dofile('modify_texture.lua')
+local vector_mod = luanti_utils.dofile('vector_mod.lua')
+
 local S = core.get_translator('massive_tree')
 
-local MAX_GENERATION = 128
-local GROWTH_INTERVAL = 60
+local MAX_GENERATION = 256
+local GROWTH_INTERVAL = 1 -- 60
 local MOD_NAME = core.get_current_modname()
 local finished_trees = {}
 local LEAF_SPAWN_RADIUS = 4
@@ -21,49 +29,19 @@ local DEFAULT_LEAVES = "default:leaves"
 local DEFAULT_TREE = "default:tree"
 local SAG_DELAY = 0.4
 
-local default_leaves_def = minetest.registered_nodes[DEFAULT_LEAVES]
-local default_tree_def = minetest.registered_nodes[DEFAULT_TREE]
+-- local function emerge_node (pos, cb)
+--     local existing = minetest.get_node_or_nil(pos)
 
-local my_leaves_def = table.copy(default_leaves_def)
-local my_tree_def = table.copy(default_tree_def)
-
-
-local function emerge_node (pos, cb)
-    local existing = minetest.get_node_or_nil(pos)
-
-    if not existing then
-        core.emerge_area(pos, pos, function(blockpos, action, calls_remaining, param)
-            if calls_remaining == 0 then
-                cb(minetest.get_node(pos), pos)
-            end
-        end)
-        return
-    end
-    cb(existing, pos)
-end
-
-my_tree_def.on_construct = function(pos)
-    local seed = minetest.hash_node_position(pos)
-    local rng = PcgRandom(seed)
-
-    -- 20% chance for this node to become rotten
-    if rng:next(1, 100) <= 20 then
-        local radius = 5
-
-        local nearby_leaves = minetest.find_nodes_in_area(
-            vector.add(pos, radius),
-            vector.subtract(pos, radius),
-            {MOD_LEAVES, DEFAULT_LEAVES}
-        )
-
-        if #nearby_leaves == 0 then
-            core.set_node(pos, {name= MOD_ROTTEN_TREE})
-        end
-    end
-end
-
-
-my_leaves_def.description = S("Massive Tree Leaves")
+--     if not existing then
+--         core.emerge_area(pos, pos, function(blockpos, action, calls_remaining, param)
+--             if calls_remaining == 0 then
+--                 cb(minetest.get_node(pos), pos)
+--             end
+--         end)
+--         return
+--     end
+--     cb(existing, pos)
+-- end
 
 local function generate_tree_id(pos)
     return minetest.get_us_time() .. ":" .. minetest.pos_to_string(pos)
@@ -86,102 +64,112 @@ local function spawn_leaves(pos, parent_generation, tree_id)
     end
 end
 
-my_leaves_def.on_construct = function(pos)
-    core.get_node_timer(pos):start(GROWTH_INTERVAL + math.random() * GROWTH_INTERVAL)
-end
+register_node_copy(MOD_TREE, DEFAULT_TREE, function() return {
+    on_construct = function(pos)
+        local seed = minetest.hash_node_position(vector.subtract(pos, vector_mod(pos, 4)))
+        local rng = PcgRandom(seed)
 
-my_leaves_def.after_place_node = function(pos)
-    local meta = core.get_meta(pos)
+        -- 20% chance for this node to become rotten
+        if rng:next(1, 100) <= 20 then
+            local radius = 5
 
-    meta:set_int("generation", 0)
-    meta:set_string("tree_id", generate_tree_id(pos))
-end
+            local nearby_leaves = minetest.find_nodes_in_area(
+                vector.add(pos, radius),
+                vector.subtract(pos, radius),
+                {MOD_LEAVES, DEFAULT_LEAVES}
+            )
 
-my_leaves_def.on_timer = function(pos)
-    -- if when_idle.is_busy then return true end
-
-    local meta = core.get_meta(pos)
-    local tree_id = meta:get_string("tree_id")
-
-    if finished_trees[tree_id] then
-        core.set_node(pos, { name = DEFAULT_LEAVES })
-        return false
+            -- if #nearby_leaves == 0 then
+                core.set_node(pos, {name= MOD_ROTTEN_TREE})
+            -- end
+        end
     end
+} end)
 
-    local generation = meta:get_int("generation")
+register_node_copy(MOD_LEAVES, DEFAULT_LEAVES, function() return {
+    description = S("Massive Tree Leaves"),
 
-    if generation >= MAX_GENERATION then
-        finished_trees[tree_id] = true
-        return
-    end
+    on_construct = function(pos)
+        core.get_node_timer(pos):start(GROWTH_INTERVAL + math.random() * GROWTH_INTERVAL)
+    end,
 
-    local light_level = core.get_node_light(pos, 0.5) or 0
+    after_place_node = function(pos)
+        local meta = core.get_meta(pos)
 
-    local min_pos = vector.subtract(pos, LEAF_SPAWN_RADIUS)
-    local max_pos = vector.add(pos, LEAF_SPAWN_RADIUS)
+        meta:set_int("generation", 0)
+        meta:set_string("tree_id", generate_tree_id(pos))
+    end,
 
-    -- Make plant growth more likely in hotter spots.
-    if math.random(math.abs(math.pow(core.get_humidity(pos), 2))) == 1 then
-        return true
-    end
+    on_timer = function(pos)
+        -- if when_idle.is_busy then return true end
 
+        local meta = core.get_meta(pos)
+        local tree_id = meta:get_string("tree_id")
 
-    local nearby_trees = core.find_nodes_in_area(min_pos, max_pos, {MOD_TREE})
-
-    if light_level <= 10 and #nearby_trees > 0 and math.random(#nearby_trees) then
-        core.set_node(pos, { name = MOD_TREE })
-        return
-    end
-
-    if #nearby_trees > 0 and math.pow(math.random(#nearby_trees), 2) == 1 then
-                -- WORTH TRYING! Another idea is to favor upward growth when many trees and downward when less tree.
-                -- The idea is that branches will grow down and the trunk up.
-        if light_level >= 14 then
-            if meta:get_int("spawned") == 1 then
-                return true
-            end    
-
-            meta:set_int("spawned", 1)
-            spawn_leaves(pos, generation, tree_id)
-        elseif light_level >= 13 then
-            if meta:get_int("spawned") == 1 then
-                return true
-            end    
-
-            meta:set_int("spawned", 1)
-            spawn_leaves(vector.add(pos, {x=0,y=-1,z=0}), generation, tree_id)
+        if finished_trees[tree_id] then
+            core.set_node(pos, { name = DEFAULT_LEAVES })
+            return false
         end
 
-        -- TRY - SMALL CHANCE THAT A LEAFE IS SPAWNED That will keep growing for a bit longer.
+        local generation = meta:get_int("generation")
+
+        if generation >= MAX_GENERATION then
+            finished_trees[tree_id] = true
+            return
+        end
+
+        local light_level = core.get_node_light(pos, 0.5) or 0
+
+        local min_pos = vector.subtract(pos, LEAF_SPAWN_RADIUS)
+        local max_pos = vector.add(pos, LEAF_SPAWN_RADIUS)
+
+        -- Make plant growth more likely in hotter spots.
+        if math.random(math.abs(math.pow(core.get_humidity(pos), 2))) == 1 then
+            return true
+        end
+
+
+        local nearby_trees = core.find_nodes_in_area(min_pos, max_pos, {MOD_TREE})
+
+        if light_level <= 10 and #nearby_trees > 0 and math.random(#nearby_trees) then
+            core.set_node(pos, { name = MOD_TREE })
+            return
+        end
+
+        if #nearby_trees > 0 and math.pow(math.random(#nearby_trees), 2) == 1 then
+                    -- WORTH TRYING! Another idea is to favor upward growth when many trees and downward when less tree.
+                    -- The idea is that branches will grow down and the trunk up.
+            if light_level >= 14 then
+                if meta:get_int("spawned") == 1 then
+                    return true
+                end
+
+                meta:set_int("spawned", 1)
+                spawn_leaves(pos, generation, tree_id)
+            elseif light_level >= 13 then
+                if meta:get_int("spawned") == 1 then
+                    return true
+                end
+
+                meta:set_int("spawned", 1)
+                spawn_leaves(vector.add(pos, {x=0,y=-1,z=0}), generation, tree_id)
+            end
+
+            -- TRY - SMALL CHANCE THAT A LEAFE IS SPAWNED That will keep growing for a bit longer.
+        end
+
+        return true
     end
+} end)
 
-    return true
-end
-
-core.register_node(MOD_TREE, my_tree_def)
-core.register_node(MOD_LEAVES, my_leaves_def)
-
-if true then
-
-    -- copy the default tree node definition (deep copy)
-    local rotten_tree_def = table.copy(default_tree_def)
-
+register_node_copy(MOD_ROTTEN_TREE, DEFAULT_TREE, function(tree) return {
     -- modify properties for rotten behavior
-    rotten_tree_def.description = S("Rotten Tree")
-
-
-    -- make a copy of the tiles table
-    rotten_tree_def.tiles = table.copy(rotten_tree_def.tiles)
+    description = S("Rotten Tree"),
 
     -- darken only the top faces (first two tiles)
-    rotten_tree_def.tiles[1] = rotten_tree_def.tiles[1].."^[colorize:#3a2f2f:120"
-    rotten_tree_def.tiles[2] = rotten_tree_def.tiles[2].."^[colorize:#3a2f2f:120"
-
-    rotten_tree_def.groups = table.copy(default_tree_def.groups)
-    rotten_tree_def.groups.falling_node = 1  -- allow it to fall
-
-
-    rotten_tree_def.on_walk_enter = function(pos, player)
+    tiles = modify_texture("^[colorize:#3a2f2f:120", tree.tiles),
+    groups = table_merge(tree.groups, { falling_node = 1}),
+    on_player_walk_enter = function(pos, player)
         local below = {x = pos.x, y = pos.y - 1, z = pos.z}
         local node_below = minetest.get_node(below)
         local def = minetest.registered_nodes[node_below.name]
@@ -203,43 +191,33 @@ if true then
             end
         end
     end
+} end)
 
-    minetest.register_node(MOD_ROTTEN_TREE_SAG, {
-        description = S("Rotten Tree (Sagging)"),
-        tiles = rotten_tree_def.tiles,
-        drawtype = "nodebox",
-        paramtype = "light",
-        paramtype2 = rotten_tree_def.paramtype2 or "facedir",
-        is_ground_content = false,
+-- Just like the rotten tree but then Sagging
+register_node_copy(MOD_ROTTEN_TREE_SAG, MOD_ROTTEN_TREE, function(rotten) return {
+    description = S("Rotten Tree (Sagging)"),
+    drawtype = "nodebox",
+    node_box = {
+        type = "fixed",
+        fixed = {-0.5, -0.625, -0.5, 0.5, 0.375, 0.5}
+    },
+    on_timer = function(pos)
+        local node = minetest.get_node(pos)
 
-        node_box = {
-            type = "fixed",
-            fixed = {-0.5, -0.625, -0.5, 0.5, 0.375, 0.5}
-        },
+        minetest.swap_node(pos, {
+            name = MOD_ROTTEN_TREE,
+            param2 = node.param2
+        })
 
-        groups = table.copy(rotten_tree_def.groups),
-        drop = MOD_ROTTEN_TREE,
+        minetest.sound_play("default_tool_breaks", {
+            pos = pos,
+            gain = 1.0,
+            max_hear_distance = 16,
+        })
 
-        on_timer = function(pos)
-            local node = minetest.get_node(pos)
-
-            minetest.swap_node(pos, {
-                name = MOD_ROTTEN_TREE,
-                param2 = node.param2
-            })
-
-            minetest.sound_play("default_tool_breaks", {
-                pos = pos,
-                gain = 1.0,
-                max_hear_distance = 16,
-            })
-
-            minetest.check_for_falling(pos)
-        end,
-    })
-
-    minetest.register_node(MOD_ROTTEN_TREE, rotten_tree_def)
-end
+        minetest.check_for_falling(pos)
+    end,
+} end)
 
 if core.registered_nodes["fireflies:firefly"] then
     --  Consider creating a new lbm every week or so.
@@ -280,7 +258,7 @@ if core.registered_nodes["fireflies:firefly"] then
 
         action = function(pos)
             -- when_idle.run(function() -- I would like to use this function
-            local seed = minetest.hash_node_position(pos)
+            local seed = minetest.hash_node_position(vector_mod(pos, 16))
             -- Using PcgRandom to prevent a tree spawning way to many fireflies.
             local rng = PcgRandom(seed)
 
